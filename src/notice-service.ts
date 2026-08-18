@@ -9,7 +9,6 @@ import {
 } from "./scraper";
 
 import { sha256 } from "./hash";
-import { sendDiscordNotification } from "./discord";
 
 export interface NewNotice {
 	notice: ScrapedNotice;
@@ -19,10 +18,8 @@ export interface NewNotice {
 }
 
 export async function processNotice(
-	db: D1Database,
-	webhookUrl: string,
-	notice: ScrapedNotice,
-	silent = false,
+    db: D1Database,
+    notice: ScrapedNotice,
 ): Promise<NewNotice | null> {
 	const existing = await getNoticeByUrl(db, notice.url);
 
@@ -48,21 +45,6 @@ export async function processNotice(
 		detectedAt,
 		contentHash,
 	);
-
-	// Notify Discord only after the database insert succeeds.
-if (!silent) {
-	await sendDiscordNotification(
-		webhookUrl,
-		{
-			title: notice.title,
-			category: notice.category,
-			url: notice.url,
-			publishedAt: details.publishedAt,
-			detectedAt,
-			pdfUrl: details.pdfUrl,
-		},
-	);
-}
 
 	return {
 		notice,

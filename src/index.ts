@@ -80,109 +80,62 @@ export default {
 			}
 		}
 
-		if (url.pathname === '/api/check') {
-			if (!env.DISCORD_WEBHOOK_URL) {
-				return Response.json(
-					{
-						success: false,
-						error: 'DISCORD_WEBHOOK_URL is not configured',
-					},
-					{ status: 500 },
-				);
-			}
-
-			try {
-				const notices = await scrapeNotices();
-
-				const newNotices = [];
-
-				for (const notice of notices) {
-					const result = await processNotice(env.csit_notice_db, env.DISCORD_WEBHOOK_URL, notice);
-
-					if (result) {
-						newNotices.push(result);
-					}
-				}
-
-				return Response.json({
-					success: true,
-					checked: notices.length,
-					new: newNotices.length,
-					newNotices,
-				});
-			} catch (error) {
-				return Response.json(
-					{
-						success: false,
-						error: error instanceof Error ? error.message : String(error),
-					},
-					{ status: 500 },
-				);
-			}
-		}
-
-		if (url.pathname === '/api/test-discord') {
-			if (!env.DISCORD_WEBHOOK_URL) {
-				return Response.json(
-					{
-						success: false,
-						error: 'DISCORD_WEBHOOK_URL is not configured',
-					},
-					{ status: 500 },
-				);
-			}
-
-			try {
-				const detectedAt = new Date().toISOString();
-
-				await sendDiscordNotification(env.DISCORD_WEBHOOK_URL, {
-					title: 'CSIT Notice Watcher - Test Notification',
-					category: 'Test',
-					url: 'https://hamrocsit.com/notice/',
-					publishedAt: detectedAt,
-					detectedAt,
-					pdfUrl: null,
-				});
-
-				return Response.json({
-					success: true,
-					message: 'Discord notification sent.',
-				});
-			} catch (error) {
-				return Response.json(
-					{
-						success: false,
-						error: error instanceof Error ? error.message : String(error),
-					},
-					{ status: 500 },
-				);
-			}
-		}
-
-		if (url.pathname === '/api/run-watcher') {
-			try {
-				const result = await runWatcher(env);
-
-				return Response.json({
-					success: true,
-					...result,
-				});
-			} catch (error) {
-				return Response.json(
-					{
-						success: false,
-						error: error instanceof Error ? error.message : String(error),
-					},
-					{ status: 500 },
-				);
-			}
-		}
-
-		return new Response('Hello World!');
+		return Response.json({
+			status: 'running',
+			service: 'CSIT Notice Watcher',
+			monitor: 'https://hamrocsit.com/notice/',
+			checkInterval: '10 minutes',
+			storage: 'Cloudflare D1',
+			processing: 'Cloudflare Queues',
+			notifications: 'Discord Webhook',
+			endpoints: {
+				testDb: '/api/test-db',
+				scrapeTest: '/api/scrape-test',
+				noticeDetails: '/api/notice-details?url=...',
+				check: '/api/check',
+				testQueue: '/api/test-queue',
+				testDiscord: '/api/test-discord',
+				runWatcher: '/api/run-watcher',
+			},
+		});
 	},
 
 	//cron trigger calls this part
 	async scheduled(event, env, ctx): Promise<void> {
 		ctx.waitUntil(runWatcher(env));
+	},
+
+	async queue(batch, env): Promise<void> {
+		for (const message of batch.messages) {
+			try {
+				const data = message.body as {
+					notice: {
+						title: string;
+						category: string;
+						url: string;
+					};
+					publishedAt: string | null;
+					pdfUrl: string | null;
+					detectedAt: string;
+				};
+
+				await sendDiscordNotification(env.DISCORD_WEBHOOK_URL, {
+					title: data.notice.title,
+					category: data.notice.category,
+					url: data.notice.url,
+					publishedAt: data.publishedAt,
+					detectedAt: data.detectedAt,
+					pdfUrl: data.pdfUrl,
+				});
+
+				message.ack();
+
+				console.log('Discord notification sent:', data.notice.url);
+			} catch (error) {
+				console.error('Failed to send Discord notification:', error);
+
+				message.retry();
+			}
+		}
 	},
 } satisfies ExportedHandler<Env>;

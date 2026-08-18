@@ -18,11 +18,29 @@
 			"database_id": "f0c54dc2-34ee-4251-a7a5-18bc6d069d91"
 		}
 	],
+	"queues": {
+    "producers": [
+        {
+            "binding": "NOTICE_QUEUE",
+            "queue": "csit-notice-notifications"
+        }
+    ],
+    "consumers": [
+        {
+            "queue": "csit-notice-notifications",
+            "max_batch_size": 10,
+            "max_batch_timeout": 5,
+            "max_retries": 3
+        }
+    ]
+},
+	
 	"triggers": {
     "crons": [
         "*/10 * * * *"
     ]
 }
+
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement

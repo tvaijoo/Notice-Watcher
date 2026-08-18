@@ -63,9 +63,7 @@ if (!initialized) {
 	for (const notice of notices) {
 		await processNotice(
 			env.csit_notice_db,
-			env.DISCORD_WEBHOOK_URL,
 			notice,
-			true,
 		);
 	}
 
@@ -78,17 +76,17 @@ if (!initialized) {
 }
 	let newNotices = 0;
 
-	for (const notice of notices) {
-		const result = await processNotice(
-			env.csit_notice_db,
-			env.DISCORD_WEBHOOK_URL,
-			notice,
-		);
+for (const notice of notices) {
+	const result = await processNotice(
+		env.csit_notice_db,
+		notice,
+	);
 
-		if (result) {
-			newNotices++;
-		}
+	if (result) {
+		await env.NOTICE_QUEUE.send(result);
+		newNotices++;
 	}
+}
 
 	return {
 		checked: notices.length,
