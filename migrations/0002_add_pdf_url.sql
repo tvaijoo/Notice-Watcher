@@ -1,0 +1,1 @@
+ALTER TABLE notices ADD COLUMN pdf_url TEXT;
